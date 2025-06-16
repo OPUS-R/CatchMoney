@@ -27,7 +27,7 @@ import os
 # Google Sheets 認証
 #使用シートマスターが違う場合、キーを変える必要あり。
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]  #いじる必要無し
-creds = ServiceAccountCredentials.from_json_keyfile_name("GCOA.json", scope)    #同ファイル内の場合は.json。別の場所の場合パス入力。
+creds = ServiceAccountCredentials.from_json_keyfile_name("venv/GCOA.json", scope)    #同ファイル内の場合は.json。別の場所の場合パス入力。
 client = gspread.authorize(creds)
 
 # スプレッドシート指定
@@ -89,7 +89,7 @@ log_text = tk.Text(root, font=("Arial", 12), height=10, wrap=tk.WORD)
 is_permitted = False  # 管理者確認用フラグ
 
 #Discord token設定
-TOKEN = json.load(open("discord.json"))["discord_token"]    #同ファイル内の場合は.json。別の場所の場合パス入力。
+TOKEN = json.load(open("venv/discord.json"))["discord_token"]    #同ファイル内の場合は.json。別の場所の場合パス入力。
 
 #Discordのインテント有効化
 intents = discord.Intents.default()
@@ -123,8 +123,9 @@ def money_message(message):
 frame_label = tk.Label(root, text="枠① (学籍番号):", font=("Arial", 12))
 frame_label.pack(pady=5)
 
-frame_display = tk.Label(root, textvariable=student_num_var, font=("Arial", 14), bg="white", relief="solid", width=20, height=2)
+frame_display = tk.Entry(root, textvariable=student_num_var, font=("Arial", 14), bg="white", relief="solid", width=20)
 frame_display.pack(pady=5)
+#frame_display = tk.Label(root, textvariable=student_num_var, font=("Arial", 14), bg="white", relief="solid", width=20, height=2)
 
 result_label = tk.Label(root, text="枠② (照合結果):", font=("Arial", 12))
 result_label.pack(pady=5)
@@ -209,6 +210,28 @@ def on_connect(tag):    #学生証読み取り
             log_message(f"NFC読み込み金額取得エラー: {e}")
 
     nfc_active.clear()
+
+def self_student_number():
+    student_num = student_num_var.get()
+    try:#枠①に生徒番号を記入
+        cell = worksheet.find(student_num)
+        result = worksheet.cell(cell.row, cell.col + 1).value
+        result_var.set(result)
+    except gspread.exceptions.CellNotFound:
+        result_var.set("見つかりません")
+        log_message("該当データが見つかりません")
+
+    selected_tab = selected_tab_var.get()
+    if selected_tab != "タブ未選択":
+        try:
+            tab_sheet = debt_spreadsheet.worksheet(selected_tab)
+            cell = tab_sheet.find(result_var.get())
+            next_cell_value = tab_sheet.cell(cell.row, cell.col + 4).value  # 対象列（必要なら +1 や +2 に調整）
+            input_value_var.set(next_cell_value)
+            serial_value_var.set(next_cell_value)
+            log_message(f"手動入力: {selected_tab} の {result_var.get()} の金額を反映: {next_cell_value}")
+        except Exception as e:
+            log_message(f"主導金額取得エラー: {e}")
 
 def nfc_reader_loop():
     while True:
@@ -419,6 +442,8 @@ update_button.pack(pady=10)
 autentic_button = tk.Button(root, text="管理者照合", font=("Arial", 12), command=check_permission)
 autentic_button.pack(pady=10,padx=10)
 
+self_button = tk.Button(root, text="手動入力", font=("Arial", 12), command=self_student_number)
+self_button.pack(pady=10,padx=10)
 
 log_label = tk.Label(root, text="ログ:", font=("Arial", 12))
 log_label.pack(pady=5)
